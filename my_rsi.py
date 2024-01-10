@@ -68,6 +68,7 @@ class SettingDialog(wx.Dialog):
             if value <= 0:
                 return False
             wx.Config.Get().WriteInt("long_break_time", value*60)
+            wx.Config.Get().Flush()
             return True
         except ValueError:
             return False
@@ -231,12 +232,10 @@ class MyRSIApp(wx.App):
         # 初始化配置
         if not config.HasEntry("break_time_period"):
             config.WriteInt("break_time_period", 20*60)
-        if not config.HasEntry("break_time"):
             config.WriteInt("break_time", 30)
-        if not config.HasEntry("long_break_time_period"):
             config.WriteInt("long_break_time_period", 60*60)
-        if not config.HasEntry("long_break_time"):
             config.WriteInt("long_break_time", 3*60)
+            config.Flush()
         wx.Config.Set(config)
 
         if adv.TaskBarIcon.IsAvailable():
