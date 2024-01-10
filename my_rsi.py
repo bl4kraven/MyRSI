@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import sys
 import wx
 from wx import adv
@@ -112,7 +113,15 @@ class RSITaskBarIcon(adv.TaskBarIcon):
 class ScreenFrame(wx.Frame):
 
     def __init__(self, timeout_second):
-        wx.Frame.__init__(self, None, style=wx.STAY_ON_TOP|wx.FRAME_NO_TASKBAR)
+        if wx.PlatformInfo[0] == "__WXGTK__":
+            wx.Frame.__init__(self, None)
+        else:
+            wx.Frame.__init__(self, None, style=wx.STAY_ON_TOP|wx.FRAME_NO_TASKBAR)
+
+        if timeout_second <= 0:
+            self.Destroy()
+            return
+
         self.timeout_second = timeout_second
 
         self.tip_label = wx.StaticText(self)
@@ -141,7 +150,7 @@ class ScreenFrame(wx.Frame):
         sizer_vertical.AddStretchSpacer()
         sizer_vertical.Add(sizer_horizontal, 0, wx.ALIGN_CENTER|wx.ALL)
         sizer_vertical.AddStretchSpacer()
-        self.SetSizerAndFit(sizer_vertical)
+        self.SetSizer(sizer_vertical)
 
         self.timer = wx.Timer(self)
         # one seconds
@@ -242,6 +251,10 @@ class MyRSIApp(wx.App):
 
         break_timer = BreakTimer()
         break_timer.init(self)
+
+        # Linux GTK 需要有一个topwindow才能运行
+        if wx.PlatformInfo[0] == "__WXGTK__":
+            ScreenFrame(1)
 
 def main(argv):
     MyRSIApp().MainLoop()
