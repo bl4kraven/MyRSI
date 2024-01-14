@@ -215,13 +215,21 @@ class BreakTimer():
     def get_long_break_time_remain(self):
         return self.long_break_time_period_minute - self.minute%self.long_break_time_period_minute 
 
+    def create_screen_frame(self, break_time_second):
+        for index in range(wx.Display.GetCount()):
+            display = wx.Display(index)
+            geo = display.GetGeometry()
+            frame = ScreenFrame(break_time_second)
+            frame.SetPosition((geo.x, geo.y))
+            frame.ShowFullScreen(True)
+
     def on_minute_timer(self):
         self.minute += 1
 
         if self.minute % self.long_break_time_period_minute == 0:
-            ScreenFrame(self.long_break_time_second).ShowFullScreen(True)
+            self.create_screen_frame(self.long_break_time_second)
         elif self.minute % self.break_time_period_minute == 0:
-            ScreenFrame(self.break_time_second).ShowFullScreen(True)
+            self.create_screen_frame(self.break_time_second)
 
 class MyRSIApp(wx.App):
 
