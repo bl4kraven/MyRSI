@@ -78,6 +78,7 @@ class RSITaskBarIcon(adv.TaskBarIcon):
     def __init__(self):
         adv.TaskBarIcon.__init__(self)
         self.Bind(adv.EVT_TASKBAR_LEFT_DOWN, self.show_setting)
+        self.is_show_dialog = False
 
     def CreatePopupMenu(self):
         break_timer = BreakTimer()
@@ -96,10 +97,15 @@ class RSITaskBarIcon(adv.TaskBarIcon):
         return popup_menu
 
     def show_setting(self, event):
+        if self.is_show_dialog:
+            return
+
+        self.is_show_dialog = True
         with SettingDialog(None) as dialog:
             if dialog.ShowModal() == wx.ID_OK:
                 break_timer = BreakTimer()
                 break_timer.read_config()
+        self.is_show_dialog = False
 
     def start_stop_break(self, event):
         break_timer = BreakTimer()
