@@ -242,6 +242,14 @@ class MyRSIApp(wx.App):
     def __init__(self):
         wx.App.__init__(self)
 
+    def OnInit(self):
+        self.name = "RSI-%s" % wx.GetUserId()
+        self.single_instance = wx.SingleInstanceChecker(self.name)
+
+        if self.single_instance.IsAnotherRunning():
+            wx.MessageBox("Another instance is running", "ERROR")
+            return False
+
         config = wx.Config("myrsi")
         # 初始化配置
         if not config.HasEntry("break_time_period"):
@@ -257,7 +265,8 @@ class MyRSIApp(wx.App):
             if not self.taskbar_icon.SetIcon(
                     wx.ArtProvider.GetBitmapBundle(wx.ART_GO_HOME, wx.ART_OTHER),
                     "RSI for protect you eyes"):
-                wx.LogError("Could not set task bar icon.")
+                wx.MessageBox("Could not set task bar icon.", "ERROR")
+                return False
         else:
             # don't exit when the top-level frame is deleted
             self.SetExitOnFrameDelete(False)
@@ -268,6 +277,8 @@ class MyRSIApp(wx.App):
         # Linux GTK 需要有一个topwindow才能运行
         if wx.PlatformInfo[0] == "__WXGTK__":
             ScreenFrame(1)
+
+        return True
 
 def main(argv):
     MyRSIApp().MainLoop()
