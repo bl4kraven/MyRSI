@@ -2,6 +2,21 @@
 import sys
 import wx
 from wx import adv
+import struct, socket
+from threading import Thread
+from wx.lib.pubsub import pub
+
+MODE_NONE = 0
+MODE_CLIENT = 1
+MODE_SERVER = 2
+
+def singleton(class_):
+    instances = {}
+    def getinstance(*args, **kwargs):
+        if class_ not in instances:
+            instances[class_] = class_(*args, **kwargs)
+        return instances[class_]
+    return getinstance
 
 class SettingDialog(wx.Dialog):
 
@@ -26,14 +41,12 @@ class SettingDialog(wx.Dialog):
         sizer.Add(self.break_time_text_ctrl)
         box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 5)
 
-
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(wx.StaticText(self, label="长时间休息间隔(分钟):"), 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL)
         self.long_break_time_period_text_ctrl = wx.TextCtrl(self, value="%d"%(wx.Config.Get().ReadInt("long_break_time_period")//60))
         sizer.AddSpacer(5)
         sizer.Add(self.long_break_time_period_text_ctrl)
         box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 5)
-
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(wx.StaticText(self, label="长时间休息时间(分钟):"), 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL)
@@ -42,9 +55,16 @@ class SettingDialog(wx.Dialog):
         sizer.Add(self.long_break_time_text_ctrl)
         box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 5)
 
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+        sizer.Add(wx.StaticText(self, label="模式:"), 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL)
+        self.mode_combobox = wx.ComboBox(self, choices=["无", "客户端", "服务器"], style=wx.CB_READONLY)
+        self.mode_combobox.SetSelection(wx.Config.Get().ReadInt("mode"))
+        sizer.AddSpacer(5)
+        sizer.Add(self.mode_combobox)
+        box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 5)
+
         box_sizer.AddSpacer(10)
         box_sizer.Add(self.CreateSeparatedButtonSizer(wx.OK|wx.CANCEL), 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL)
-
         self.SetSizerAndFit(top_sizer)
 
     def TransferDataFromWindow(self):
@@ -68,6 +88,10 @@ class SettingDialog(wx.Dialog):
             if value <= 0:
                 return False
             wx.Config.Get().WriteInt("long_break_time", value*60)
+
+            value = self.mode_combobox.GetSelection()
+            wx.Config.Get().WriteInt("mode", value)
+
             wx.Config.Get().Flush()
             return True
         except ValueError:
@@ -112,7 +136,7 @@ class RSITaskBarIcon(adv.TaskBarIcon):
         if break_timer.is_running():
             break_timer.stop()
         else:
-            break_timer.restart()
+            break_timer.start()
 
     def do_exit(self, event):
         wx.GetApp().ExitMainLoop()
@@ -183,25 +207,22 @@ class ScreenFrame(wx.Frame):
         else:
             self.tip_label.SetLabel("剩余%d秒"%self.timeout_second)
 
+@singleton
 class BreakTimer():
-    _instance = None
+    TIMER_INTERVAL = 60*1000
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance.minute = 0
-            cls._instance.timer = None
-            cls._instance.read_config()
-        return cls._instance
+    def __init__(self):
+        self.minute = 0
+        self.timer = None
+        self.read_config()
 
     def init(self, parent):
         if not self.timer:
-            self._instance.timer = wx.Timer(parent)
-            self.timer.Start(60*1000)
+            self.timer = wx.Timer(parent)
             parent.Bind(wx.EVT_TIMER, lambda e: self.on_minute_timer(), self.timer)
 
-    def restart(self):
-        self.timer.Start()
+    def start(self):
+        self.timer.Start(self.TIMER_INTERVAL)
 
     def stop(self):
         self.timer.Stop()
@@ -234,8 +255,47 @@ class BreakTimer():
 
         if self.minute % self.long_break_time_period_minute == 0:
             self.create_screen_frame(self.long_break_time_second)
+            RSIService().brodcast_break(self.long_break_time_second)
         elif self.minute % self.break_time_period_minute == 0:
             self.create_screen_frame(self.break_time_second)
+            RSIService().brodcast_break(self.break_time_second)
+
+@singleton
+class RSIService(Thread):
+
+    MULTICAST_GRP = "224.0.0.222"
+    MULTICAST_PORT = 9999
+
+    def __init__(self):
+        Thread.__init__(self)
+        self.daemon = True
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        self.mode = wx.Config.Get().ReadInt("mode")
+        if self.mode == MODE_SERVER:
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.sock.bind(("0.0.0.0", self.MULTICAST_PORT))
+            req = struct.pack("4sl", socket.inet_aton(self.MULTICAST_GRP), socket.INADDR_ANY)
+            self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
+            self.start()
+
+    def brodcast_break(self, time_second):
+        if self.mode == self.MODE_SERVER:
+            self.sock.sendto(struct.pack('cI', b'R', time_second), (self.MULTICAST_GRP, self.MULTICAST_PORT))
+
+    def run(self):
+        data_format_len = struct.calcsize('cI')
+        while True:
+            data = self.sock.recv(data_format_len)
+            if data:
+                try:
+                   head, break_time = struct.unpack('cI', data)
+                   if head != b'R':
+                       print("ERR: invalid UDP head data")
+                       continue
+
+                   wx.CallAfter(pub.sendMessage, "break_time.listener", message=break_time)
+                except struct.error:
+                    print("ERR: invalid UDP data")
 
 class MyRSIApp(wx.App):
 
@@ -258,6 +318,9 @@ class MyRSIApp(wx.App):
             config.WriteInt("long_break_time_period", 60*60)
             config.WriteInt("long_break_time", 3*60)
             config.Flush()
+        if not config.HasEntry("mode"):
+            config.WriteInt("mode", MODE_NONE)
+            config.Flush()
         wx.Config.Set(config)
 
         if adv.TaskBarIcon.IsAvailable():
@@ -273,12 +336,23 @@ class MyRSIApp(wx.App):
 
         break_timer = BreakTimer()
         break_timer.init(self)
+        if wx.Config.Get().ReadInt("mode") != MODE_CLIENT:
+            break_timer.start()
 
         # Linux GTK 需要有一个topwindow才能运行
         if wx.PlatformInfo[0] == "__WXGTK__":
             ScreenFrame(1)
 
+        RSI_service = RSIService()
+
+        pub.subscribe(self.break_time_listener, "break_time.listener")
         return True
+
+    def break_time_listener(self, message):
+        break_time_second = message
+        if break_time_second > 0:
+            break_timer = BreakTimer()
+            break_timer.create_screen_frame(break_time_second)
 
 def main(argv):
     MyRSIApp().MainLoop()
