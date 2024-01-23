@@ -271,7 +271,7 @@ class RSIService(Thread):
         self.daemon = True
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.mode = wx.Config.Get().ReadInt("mode")
-        if self.mode == MODE_SERVER:
+        if self.mode == MODE_CLIENT:
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.sock.bind(("0.0.0.0", self.MULTICAST_PORT))
             req = struct.pack("4sl", socket.inet_aton(self.MULTICAST_GRP), socket.INADDR_ANY)
@@ -279,7 +279,7 @@ class RSIService(Thread):
             self.start()
 
     def brodcast_break(self, time_second):
-        if self.mode == self.MODE_SERVER:
+        if self.mode == MODE_SERVER:
             self.sock.sendto(struct.pack('cI', b'R', time_second), (self.MULTICAST_GRP, self.MULTICAST_PORT))
 
     def run(self):
@@ -336,7 +336,9 @@ class MyRSIApp(wx.App):
 
         break_timer = BreakTimer()
         break_timer.init(self)
-        if wx.Config.Get().ReadInt("mode") != MODE_CLIENT:
+        if wx.Config.Get().ReadInt("mode") == MODE_CLIENT:
+            pub.subscribe(self.break_time_listener, "break_time.listener")
+        else:
             break_timer.start()
 
         # Linux GTK 需要有一个topwindow才能运行
@@ -344,8 +346,6 @@ class MyRSIApp(wx.App):
             ScreenFrame(1)
 
         RSI_service = RSIService()
-
-        pub.subscribe(self.break_time_listener, "break_time.listener")
         return True
 
     def break_time_listener(self, message):
