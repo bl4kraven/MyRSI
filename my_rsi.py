@@ -2,7 +2,8 @@
 import sys
 import wx
 from wx import adv
-import struct, socket
+import struct
+import socket
 from threading import Thread
 from wx.lib.pubsub import pub
 
@@ -12,6 +13,7 @@ MODE_SERVER = 2
 
 def singleton(class_):
     instances = {}
+
     def getinstance(*args, **kwargs):
         if class_ not in instances:
             instances[class_] = class_(*args, **kwargs)
@@ -25,46 +27,51 @@ class SettingDialog(wx.Dialog):
 
         top_sizer = wx.BoxSizer(wx.VERTICAL)
         box_sizer = wx.BoxSizer(wx.VERTICAL)
-        top_sizer.Add(box_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 20)
+        top_sizer.Add(box_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 20)
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(wx.StaticText(self, label="短时间休息间隔(分钟):"), 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL)
-        self.break_time_period_text_ctrl = wx.TextCtrl(self, value="%d"%(wx.Config.Get().ReadInt("break_time_period")//60))
+        sizer.Add(wx.StaticText(self, label="短时间休息间隔(分钟):"), 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL)
+        self.break_time_period_text_ctrl = \
+            wx.TextCtrl(self, value="{}".format(wx.Config.Get().ReadInt("break_time_period") // 60))
         sizer.AddSpacer(5)
         sizer.Add(self.break_time_period_text_ctrl)
-        box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 5)
+        box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 5)
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(wx.StaticText(self, label="短时间休息时间(秒):"), 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL)
-        self.break_time_text_ctrl = wx.TextCtrl(self, value="%d"%wx.Config.Get().ReadInt("break_time"))
+        sizer.Add(wx.StaticText(self, label="短时间休息时间(秒):"), 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL)
+        self.break_time_text_ctrl = \
+            wx.TextCtrl(self, value="{}".format(wx.Config.Get().ReadInt("break_time")))
         sizer.AddSpacer(5)
         sizer.Add(self.break_time_text_ctrl)
-        box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 5)
+        box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 5)
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(wx.StaticText(self, label="长时间休息间隔(分钟):"), 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL)
-        self.long_break_time_period_text_ctrl = wx.TextCtrl(self, value="%d"%(wx.Config.Get().ReadInt("long_break_time_period")//60))
+        sizer.Add(wx.StaticText(self, label="长时间休息间隔(分钟):"), 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL)
+        self.long_break_time_period_text_ctrl = \
+            wx.TextCtrl(self, value="{}".format(wx.Config.Get().ReadInt("long_break_time_period") // 60))
         sizer.AddSpacer(5)
         sizer.Add(self.long_break_time_period_text_ctrl)
-        box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 5)
+        box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 5)
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(wx.StaticText(self, label="长时间休息时间(分钟):"), 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL)
-        self.long_break_time_text_ctrl = wx.TextCtrl(self, value="%d"%(wx.Config.Get().ReadInt("long_break_time")//60))
+        sizer.Add(wx.StaticText(self, label="长时间休息时间(分钟):"), 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL)
+        self.long_break_time_text_ctrl = \
+            wx.TextCtrl(self, value="{}".format(wx.Config.Get().ReadInt("long_break_time") // 60))
         sizer.AddSpacer(5)
         sizer.Add(self.long_break_time_text_ctrl)
-        box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 5)
+        box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 5)
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(wx.StaticText(self, label="模式:"), 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL)
+        sizer.Add(wx.StaticText(self, label="模式:"), 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL)
         self.mode_combobox = wx.ComboBox(self, choices=["无", "客户端", "服务器"], style=wx.CB_READONLY)
         self.mode_combobox.SetSelection(wx.Config.Get().ReadInt("mode"))
         sizer.AddSpacer(5)
         sizer.Add(self.mode_combobox)
-        box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 5)
+        box_sizer.Add(sizer, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 5)
 
         box_sizer.AddSpacer(10)
-        box_sizer.Add(self.CreateSeparatedButtonSizer(wx.OK|wx.CANCEL), 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL)
+        box_sizer.Add(self.CreateSeparatedButtonSizer(wx.OK | wx.CANCEL),
+                      0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL)
         self.SetSizerAndFit(top_sizer)
 
     def TransferDataFromWindow(self):
@@ -72,22 +79,22 @@ class SettingDialog(wx.Dialog):
             value = int(self.break_time_period_text_ctrl.GetValue())
             if value <= 0:
                 return False
-            wx.Config.Get().WriteInt("break_time_period",  value*60)
+            wx.Config.Get().WriteInt("break_time_period", value * 60)
 
             value = int(self.break_time_text_ctrl.GetValue())
             if value <= 0:
                 return False
-            wx.Config.Get().WriteInt("break_time", value) 
+            wx.Config.Get().WriteInt("break_time", value)
 
             value = int(self.long_break_time_period_text_ctrl.GetValue())
             if value <= 0:
                 return False
-            wx.Config.Get().WriteInt("long_break_time_period", value*60)
+            wx.Config.Get().WriteInt("long_break_time_period", value * 60)
 
             value = int(self.long_break_time_text_ctrl.GetValue())
             if value <= 0:
                 return False
-            wx.Config.Get().WriteInt("long_break_time", value*60)
+            wx.Config.Get().WriteInt("long_break_time", value * 60)
 
             value = self.mode_combobox.GetSelection()
             wx.Config.Get().WriteInt("mode", value)
@@ -107,8 +114,10 @@ class RSITaskBarIcon(adv.TaskBarIcon):
     def CreatePopupMenu(self):
         break_timer = BreakTimer()
         popup_menu = wx.Menu()
-        popup_menu.Append(wx.ID_ANY, "短休息还需%d分钟"%break_timer.get_break_time_remain()).Enable(False)
-        popup_menu.Append(wx.ID_ANY, "长休息还需%d分钟"%break_timer.get_long_break_time_remain()).Enable(False)
+        popup_menu.Append(wx.ID_ANY,
+                          "短休息还需{}分钟".format(break_timer.get_break_time_remain())).Enable(False)
+        popup_menu.Append(wx.ID_ANY,
+                          "长休息还需{}分钟".format(break_timer.get_long_break_time_remain())).Enable(False)
         popup_menu.AppendSeparator()
         if break_timer.is_running():
             start_stop_menu = popup_menu.Append(wx.ID_ANY, "停止")
@@ -147,7 +156,7 @@ class ScreenFrame(wx.Frame):
         if wx.PlatformInfo[0] == "__WXGTK__":
             wx.Frame.__init__(self, None)
         else:
-            wx.Frame.__init__(self, None, style=wx.STAY_ON_TOP|wx.FRAME_NO_TASKBAR)
+            wx.Frame.__init__(self, None, style=wx.STAY_ON_TOP | wx.FRAME_NO_TASKBAR)
 
         if timeout_second <= 0:
             self.Destroy()
@@ -172,14 +181,14 @@ class ScreenFrame(wx.Frame):
 
         bmp = wx.ArtProvider.GetBitmap(wx.ART_QUIT, wx.ART_OTHER)
         exit_bmp = wx.StaticBitmap(self, -1, bmp)
-        sizer_horizontal.Add(skip_link, 0, wx.ALIGN_CENTER|wx.ALL)
-        sizer_horizontal.Add(exit_bmp, 0, wx.ALIGN_CENTER|wx.ALL, border=10)
+        sizer_horizontal.Add(skip_link, 0, wx.ALIGN_CENTER | wx.ALL)
+        sizer_horizontal.Add(exit_bmp, 0, wx.ALIGN_CENTER | wx.ALL, border=10)
 
         sizer_vertical = wx.BoxSizer(wx.VERTICAL)
         sizer_vertical.AddStretchSpacer()
-        sizer_vertical.Add(self.tip_label, 0, wx.ALIGN_CENTER|wx.ALL)
+        sizer_vertical.Add(self.tip_label, 0, wx.ALIGN_CENTER | wx.ALL)
         sizer_vertical.AddStretchSpacer()
-        sizer_vertical.Add(sizer_horizontal, 0, wx.ALIGN_CENTER|wx.ALL)
+        sizer_vertical.Add(sizer_horizontal, 0, wx.ALIGN_CENTER | wx.ALL)
         sizer_vertical.AddStretchSpacer()
         self.SetSizer(sizer_vertical)
 
@@ -203,13 +212,13 @@ class ScreenFrame(wx.Frame):
 
     def update_timer(self):
         if self.timeout_second > 60:
-            self.tip_label.SetLabel("剩余%d分钟%d秒"%(self.timeout_second//60, self.timeout_second%60))
+            self.tip_label.SetLabel("剩余{}分钟{}秒".format(self.timeout_second // 60, self.timeout_second % 60))
         else:
-            self.tip_label.SetLabel("剩余%d秒"%self.timeout_second)
+            self.tip_label.SetLabel("剩余{}秒".format(self.timeout_second))
 
 @singleton
 class BreakTimer():
-    TIMER_INTERVAL = 60*1000
+    TIMER_INTERVAL = 60 * 1000
 
     def __init__(self):
         self.minute = 0
@@ -231,16 +240,16 @@ class BreakTimer():
         return self.timer.IsRunning()
 
     def read_config(self):
-        self.break_time_period_minute = wx.Config.Get().ReadInt("break_time_period")//60
+        self.break_time_period_minute = wx.Config.Get().ReadInt("break_time_period") // 60
         self.break_time_second = wx.Config.Get().ReadInt("break_time")
-        self.long_break_time_period_minute = wx.Config.Get().ReadInt("long_break_time_period")//60
+        self.long_break_time_period_minute = wx.Config.Get().ReadInt("long_break_time_period") // 60
         self.long_break_time_second = wx.Config.Get().ReadInt("long_break_time")
 
     def get_break_time_remain(self):
-        return self.break_time_period_minute - self.minute%self.break_time_period_minute 
+        return self.break_time_period_minute - self.minute % self.break_time_period_minute
 
     def get_long_break_time_remain(self):
-        return self.long_break_time_period_minute - self.minute%self.long_break_time_period_minute 
+        return self.long_break_time_period_minute - self.minute % self.long_break_time_period_minute
 
     def create_screen_frame(self, break_time_second):
         for index in range(wx.Display.GetCount()):
@@ -288,12 +297,12 @@ class RSIService(Thread):
             data = self.sock.recv(data_format_len)
             if data:
                 try:
-                   head, break_time = struct.unpack('cI', data)
-                   if head != b'R':
-                       print("ERR: invalid UDP head data")
-                       continue
+                    head, break_time = struct.unpack('cI', data)
+                    if head != b'R':
+                        print("ERR: invalid UDP head data")
+                        continue
 
-                   wx.CallAfter(pub.sendMessage, "break_time.listener", message=break_time)
+                    wx.CallAfter(pub.sendMessage, "break_time.listener", message=break_time)
                 except struct.error:
                     print("ERR: invalid UDP data")
 
@@ -313,10 +322,10 @@ class MyRSIApp(wx.App):
         config = wx.Config("myrsi")
         # 初始化配置
         if not config.HasEntry("break_time_period"):
-            config.WriteInt("break_time_period", 20*60)
+            config.WriteInt("break_time_period", 20 * 60)
             config.WriteInt("break_time", 30)
-            config.WriteInt("long_break_time_period", 60*60)
-            config.WriteInt("long_break_time", 3*60)
+            config.WriteInt("long_break_time_period", 60 * 60)
+            config.WriteInt("long_break_time", 3 * 60)
             config.Flush()
         if not config.HasEntry("mode"):
             config.WriteInt("mode", MODE_NONE)
