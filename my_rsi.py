@@ -313,7 +313,11 @@ class MyRSIApp(wx.App):
 
     def OnInit(self):
         self.name = "RSI-%s" % wx.GetUserId()
-        self.single_instance = wx.SingleInstanceChecker(self.name)
+        if wx.PlatformInfo[0] == "__WXGTK__":
+            # Linux 默认放在~目录下，有时候无法判断是否已经启动
+            self.single_instance = wx.SingleInstanceChecker(self.name, "/tmp")
+        else:
+            self.single_instance = wx.SingleInstanceChecker(self.name)
 
         if self.single_instance.IsAnotherRunning():
             wx.MessageBox("Another instance is running", "ERROR")
